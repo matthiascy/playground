@@ -1,8 +1,10 @@
 #![feature(specialization)]
 
+mod decay;
 mod futures;
 pub mod ownership;
-mod rustonomicon;
+mod smart_pointers;
+mod r#unsafe;
 
 fn main() {
     // let va = vec![1, 2, 3, 4];
@@ -15,57 +17,44 @@ fn main() {
     // println!("{:?}", vc);
     // println!("{:?}", vd);
     // println!("{:?}", ve);
-    //
     // rustonomicon::vec::run_vec();
 
-    ownership::test_my_vec();
+    non_null();
 
-    let m0 = Measurement {
-        micro_surfaces: vec!["a.txt".to_string(), "b.txt".to_string()],
-        kind: MeasurementKind::Ndf {
-            kind: BsdfKind::Refractive,
-            alpha: 0.5,
-            beta: Some(0.7),
-        },
+    use std::path::Path;
+
+    let p = Path::new("foo.txt");
+    println!("{:?}", p.canonicalize().unwrap());
+}
+
+fn non_null() {
+    use core::mem::{drop, forget, MaybeUninit};
+    use core::ptr::NonNull;
+
+    #[derive(Debug)]
+    struct A(Box<u32>);
+
+    impl Drop for A {
+        fn drop(&mut self) {
+            println!("drop A {:?}", self.0);
+        }
+    }
+
+    unsafe fn alloc() -> [A; 4] {
+        let a = MaybeUninit::<[A; 4]>::uninit();
+        a.assume_init()
+    }
+
+    let arr = unsafe {
+        let mut arr = alloc();
+        for i in 0..4 {
+            arr.as_mut_ptr().add(i).write(A(Box::new(i as u32)));
+            println!("{:?}", arr[i]);
+        }
+        arr
     };
-    println!("{}", serde_yaml::to_string(&m0).unwrap());
-    let m1 = Measurement {
-        kind: MeasurementKind::Bsdf {
-            kind: BsdfKind::Refractive,
-            incident_medium: Some("air".to_string()),
-        },
-        micro_surfaces: vec!["c.xml".to_string(), "d.xml".to_string()],
-    };
-    println!("{}", serde_yaml::to_string(&m1).unwrap());
-}
 
-#[derive(Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
-enum BsdfKind {
-    Diffuse,
-    Specular,
-    Refractive,
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "kebab-case")]
-enum MeasurementKind {
-    Bsdf {
-        #[serde(rename = "bsdf_type")]
-        kind: BsdfKind,
-        incident_medium: Option<String>,
-    },
-    Ndf {
-        kind: BsdfKind,
-        alpha: f32,
-        beta: Option<f32>,
-    },
-}
-
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-struct Measurement {
-    #[serde(rename = "type")]
-    kind: MeasurementKind,
-    micro_surfaces: Vec<String>,
+    println!("arr: {:?}", arr);
 }
 
 // #[test]
