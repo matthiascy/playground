@@ -2,8 +2,8 @@ use core::slice;
 use std::alloc::{self, Layout};
 use std::marker::PhantomData;
 use std::mem;
-use std::ptr::{self, NonNull};
 use std::ops::{Deref, DerefMut};
+use std::ptr::{self, NonNull};
 
 struct RawVec<T> {
     ptr: NonNull<T>,
@@ -72,7 +72,7 @@ impl<T> Drop for RawVec<T> {
             unsafe {
                 alloc::dealloc(
                     self.ptr.as_ptr() as *mut u8,
-                    Layout::array::<T>(self.cap).unwrap()
+                    Layout::array::<T>(self.cap).unwrap(),
                 );
             }
         }
@@ -165,7 +165,10 @@ impl<T> Vec<T> {
             // anyway, so why not do it now?
             self.len = 0;
 
-            Drain { vec: PhantomData, iter }
+            Drain {
+                vec: PhantomData,
+                iter,
+            }
         }
     }
 }
@@ -192,7 +195,7 @@ impl<T> DerefMut for Vec<T> {
 
 struct RawValIter<T> {
     start: *const T,
-    end: *const T
+    end: *const T,
 }
 
 impl<T> RawValIter<T> {
@@ -212,7 +215,7 @@ impl<T> RawValIter<T> {
                 slice.as_ptr()
             } else {
                 slice.as_ptr().add(slice.len())
-            }
+            },
         }
     }
 }
@@ -238,8 +241,8 @@ impl<T> Iterator for RawValIter<T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let elem_size = mem::size_of::<T>();
-        let len = (self.end as usize - self.start as usize)
-            / if elem_size == 0 { 1 } else { elem_size };
+        let len =
+            (self.end as usize - self.start as usize) / if elem_size == 0 { 1 } else { elem_size };
         (len, Some(len))
     }
 }
@@ -255,7 +258,7 @@ impl<T> DoubleEndedIterator for RawValIter<T> {
                     Some(ptr::read(NonNull::<T>::dangling().as_ptr()))
                 } else {
                     self.end = self.end.offset(-1);
-                Some(ptr::read(self.end))
+                    Some(ptr::read(self.end))
                 }
             }
         }
@@ -264,7 +267,7 @@ impl<T> DoubleEndedIterator for RawValIter<T> {
 
 pub struct IntoIter<T> {
     _buf: RawVec<T>, // we don't actually care about this. Just need it to live.
-    iter: RawValIter<T>
+    iter: RawValIter<T>,
 }
 
 impl<T> Drop for IntoIter<T> {
@@ -278,13 +281,19 @@ impl<T> Drop for IntoIter<T> {
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
-    fn next(&mut self) -> Option<T> { self.iter.next() }
+    fn next(&mut self) -> Option<T> {
+        self.iter.next()
+    }
 
-    fn size_hint(&self) -> (usize, Option<usize>) { self.iter.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<T> DoubleEndedIterator for IntoIter<T> {
-    fn next_back(&mut self) -> Option<T> { self.iter.next_back() }
+    fn next_back(&mut self) -> Option<T> {
+        self.iter.next_back()
+    }
 }
 
 impl<T> IntoIterator for Vec<T> {
@@ -298,10 +307,7 @@ impl<T> IntoIterator for Vec<T> {
             let buf = ptr::read(&self.buf);
             mem::forget(self);
 
-            IntoIter {
-                iter,
-                _buf: buf,
-            }
+            IntoIter { iter, _buf: buf }
         }
     }
 }
@@ -328,7 +334,6 @@ impl<'a, T> Drop for Drain<'a, T> {
         for _ in &mut *self {}
     }
 }
-
 
 #[test]
 fn vec() {

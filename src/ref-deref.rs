@@ -16,7 +16,7 @@ fn altering_reference() {
     println!("altering_reference");
     let val0 = 0;
     let val1 = 1;
-    let mut a= &val0;
+    let mut a = &val0;
     dbg!(val0);
     dbg!(val1);
     dbg!(a);
@@ -30,7 +30,7 @@ fn altering_referenced() {
     println!("altering_referenced");
     let mut val = 0;
     dbg!(val);
-    let a= &mut val;
+    let a = &mut val;
     dbg!(a);
     *a = 10;
     dbg!(a);

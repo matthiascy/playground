@@ -30,13 +30,28 @@ pub struct Decable;
 
 #[test]
 fn decay_test() {
-    println!("Decay::Output = {}", std::any::type_name::<<Decable as Decay>::Output>());
-    println!("Decay::Output = {}", std::any::type_name::<<&Decable as Decay>::Output>());
-    println!("Decay::Output = {}", std::any::type_name::<<&mut Decable as Decay>::Output>());
+    println!(
+        "Decay::Output = {}",
+        std::any::type_name::<<Decable as Decay>::Output>()
+    );
+    println!(
+        "Decay::Output = {}",
+        std::any::type_name::<<&Decable as Decay>::Output>()
+    );
+    println!(
+        "Decay::Output = {}",
+        std::any::type_name::<<&mut Decable as Decay>::Output>()
+    );
     println!("Decay::Output = {}", std::any::type_name::<&mut Decable>());
     println!("{}", <<Decable as Decay>::Output as TypeEq<Decable>>::VALUE);
 
     assert_eq!(<<Decable as Decay>::Output as TypeEq<Decable>>::VALUE, true);
-    assert_eq!(<<&Decable as Decay>::Output as TypeEq<Decable>>::VALUE, true);
-    assert_eq!(<<&mut Decable as Decay>::Output as TypeEq<Decable>>::VALUE, true);
+    assert_eq!(
+        <<&Decable as Decay>::Output as TypeEq<Decable>>::VALUE,
+        true
+    );
+    assert_eq!(
+        <<&mut Decable as Decay>::Output as TypeEq<Decable>>::VALUE,
+        true
+    );
 }

@@ -20,3 +20,11 @@ path = "src/array.rs"
 [[bin]]
 name = "lifetime"
 path = "src/lifetime.rs"
+
+[[bin]]
+name = "atomics_locks_threads"
+path = "src/atomics_locks/threads.rs"
+
+[[bin]]
+name = "atomics_locks_atomics"
+path = "src/atomics_locks/atomics.rs"
