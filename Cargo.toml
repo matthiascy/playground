@@ -28,3 +28,32 @@ path = "src/atomics_locks/threads.rs"
 [[bin]]
 name = "atomics_locks_atomics"
 path = "src/atomics_locks/atomics.rs"
+
+[[bin]]
+name = "atomics_progress_reporting_single_threaded"
+path = "src/atomics_locks/atomics_progress_reporting_single_threaded.rs"
+
+[[bin]]
+name = "atomics_progress_reporting_multi_threaded"
+path = "src/atomics_locks/atomics_progress_reporting_multi_threaded.rs"
+
+[[bin]]
+name = "atomics_progress_reporting_multi_threaded_statistics"
+path = "src/atomics_locks/atomics_progress_reporting_multi_threaded_statistics.rs"
+
+
+[[bin]]
+name = "atomics_compare_and_exchange"
+path = "src/atomics_locks/atomics_compare_and_exchange.rs"
+
+[[bin]]
+name = "atomics_compare_and_exchange_id_alloc"
+path = "src/atomics_locks/atomics_compare_and_exchange_id_alloc.rs"
+
+[[bin]]
+name = "out_of_thin_air_values"
+path = "src/atomics_locks/out_of_thin_air_values.rs"
+
+[[bin]]
+name = "release_acquire_ordering"
+path = "src/atomics_locks/release_acquire_ordering.rs"
