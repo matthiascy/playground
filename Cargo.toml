@@ -57,3 +57,15 @@ path = "src/atomics_locks/out_of_thin_air_values.rs"
 [[bin]]
 name = "release_acquire_ordering"
 path = "src/atomics_locks/release_acquire_ordering.rs"
+
+[[bin]]
+name = "lazy_initialisation_with_indirection_rel_acq"
+path = "src/atomics_locks/lazy_initialisation_with_indirection_rel_acq.rs"
+
+[[bin]]
+name = "sequentially_consistent_ordering"
+path = "src/atomics_locks/sequentially_consistent_ordering.rs"
+
+[[bin]]
+name = "fences"
+path = "src/atomics_locks/fences.rs"
