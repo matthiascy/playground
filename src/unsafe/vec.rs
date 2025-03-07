@@ -1,37 +1,147 @@
+//! The naive implementation of Vec<T> for educational purposes.
+//!
+//! Naively, we can implement Vec<T> as a struct with a pointer to the heap-allocated buffer,
+//! a length, and a capacity.
+//!
+//! ```
+//! pub struct Vec<T> {
+//!     ptr: *mut T,
+//!     len: usize,
+//!     cap: usize,
+//! ```
+//!
+//! This compiles, but it's too restrictive (a `&Vec<'static str>` couldn't be used where a
+//! `&Vec<&'a str> was expected`), because `*mut T` is invariant over `T`.
+//!
+//! Standard library uses `Unique<T>` in place of `*mut T` when it has a raw pointer that owns
+//! an allocation. `Unique<T>` is a wrapper around a raw pointer `NonNull<T>` that declares that:
+//!
+//! * convariant over `T`
+//! * may own a value of type `T` (for drop check)
+//! * is `Send`/`Sync` if `T` is `Send`/`Sync`
+//! * its pointer is never null (so `Option<Vec<T>>` is null-pointer-optimized)
+//!
+//! ```
+//! struct NonNull<T: ?Sized> {
+//!     pointer: *const T,  // Covariant over T
+//! }
+//!
+//!
+//! struct Unique<T: ?Sized> {
+//!     ptr: NonNull<T>,
+//!     _marker: PhantomData<T>,  // with drop check (owns T)
+//! }
+//! ```
+//!
+//! In this implementation, we use `NonNull<T>` instead of `Unique<T>` for educational purposes.
+//!
+//! Normally, we would add `PhantomData<T>` to `Vec<T>` to tell the drop checker that we own `T`.
+//! Otherwise, the drop checker would not know that `T` needs to be dropped when `Vec<T>` is dropped.
+//!
+//! Since RFC 1238, this is no longer necessary, as long as we implement `Drop` for `Vec<T>`.
+//!
+//! ```
+//! pub struct Vec<T> {
+//!    ptr: NonNull<T>,
+//!    len: usize,
+//!    cap: usize,
+//! }
+//!
+//! impl<T> Drop for Vec<T> { /* ... */ }
+//! ```
+//!
+//! When a type has a `Drop` implementation, the drop checker assumes that the type owns its fields.
+//!
+//! But, this can sometimes be too restrictive. The following code will not compile:
+//!
+//! ```
+//! fn main() {
+//!     let mut v = Vec::new();
+//!     let s: String = "hello".to_string();
+//!     v.push(&s);
+//!     drop(s);  // s is dropped before v
+//! }
+//! ```
+//!
+//! With the current implementation, the drop checker will not allow such code to compile. If such `Drop`
+//! were to be used, it would be dealing with an expired, or dangling reference. But this is contrary to
+//! Rust principles, where by default, all references involved in a function signature are non-dangling
+//! and valid to dereference. The borrow checking analysis does not know about the internals of each
+//! *Drop* implementation, the drop checker forces all borrowed data in a value to strictly outlive
+//! that value, even if the drop implementation does not use the borrowed data.
+//!
+//! However, for the case of `Vec<&'s str>`, `&'s str` does not have drop glue of its own, the vector only
+//! needs to deallocate the backing buffer, not the elements themselves. It would be nice to have some
+//! special case to allow this.
+//!
+//! That's way the standard library uses an unstable and unsafe feature called `#[may_dangle]` to opt
+//! back into the old "unchecked" dropck behavior. In this case, we still need to use `PhantomData<T>`
+//! to tell the drop checker that we own `T`.
+//!
+//! # May Dangle
+//!
+//! The `#[may_dangle]` attribute is used to opt out of the drop checker's strict rules that type parameters
+//! of a dropped instance must outlive the instance itself.
+//!
+//! `Drop for Vec<T>` has to transitively drop each `T` item when it has drop glue before deallocating the
+//! backing buffer. But, if `T` does not have drop glue, the drop checker will not allow this code to compile.
+//!
+//! With the `#[may_dangle]` attribute, we tell the drop checker that `T` may dangle provided it not be
+//! involved in some transitev drop glue.
+//!
+//! That's why the standard library uses `#[may_dangle]` for `Vec<T>`:
+//!
+//! ```
+//! pub struct Vec<T> {
+//!   ptr: NonNull<T>,
+//!   len: usize,
+//!   cap: usize,
+//!   // for the case that a `Vec` owns `T` and may thus drop it in `Drop`
+//!   _marker: PhantomData<T>,
+//! }
+//!
+//! // We swear not to use `T` when dropping `Vec<T>`.
+//! unsafe impl<#[may_dangle] T> Drop for Vec<T> { /* ... */ }
+//! ```
+//!
+//! Raw pointers that own an allocation is such a pervasive pattern that the standard library has
+//! a type for it: `Unique<T>` which
+//!
+//! * wraps a `*const T` for variance
+//! * has a `PhantomData<T>` for drop check
+//! * automatically implements `Send`/`Sync` if `T` is `Send`/`Sync`
+//! * marks the pointer as non-null for null-pointer optimization
+//!
+//! ```
+//! pub struct Unique<T: ?Sized> {
+//!    ptr: NonNull<T>,
+//!    _marker: PhantomData<T>,
+//! }
+//! ```
 use std::alloc::{self, Layout};
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::ptr::{self, NonNull};
 
-// *mut T but non-zero and covariant
-//
-// struct NonNull<T: ?Sized> {
-//     pointer: *const T,  // Covariant over T
-// }
-//
-// struct Unique<T: ?Sized> {
-//     ptr: NonNull<T>,
-//     _marker: PhantomData<T>,  // with drop check (owns T)
-// }
-//
-// Unique is a wrapper around a raw pointer that declares that:
-//
-// * we are covariant over T
-// * we may own a value of type T (for drop check)
-// * we are Send/Sync if T is Send/Sync
-// * our pointer is never null (so Option<Vec<T>>) is null-pointer-optimized)
 pub struct Vec<T> {
     ptr: NonNull<T>, // *mut T but non-zero and covariant
-    cap: usize,
     len: usize,
-    _marker: PhantomData<T>,
+    cap: usize,
+    _marker: PhantomData<T>, // tell the drop checker that we own T
 }
 
 unsafe impl<T: Send> Send for Vec<T> {}
 unsafe impl<T: Sync> Sync for Vec<T> {}
 
 impl<T> Vec<T> {
+    /// When create a an empty Vec, we don't actually allocate any memory. At the same time,
+    /// we can't put a null pointer in `ptr` since `NonNull` can't be null. What are we to do?
+    ///
+    /// This is fine, because we have `cap == 0` as a sentinel value to indicate that there is
+    /// no allocation. `NonNull::dangling()` is a non-null pointer that may potentially
+    /// represent a valid pointer to a `T`, which means this must not be used as a "not yet
+    /// initialized" sentinel value. But, it provides a way to nicely handle lazy allocation.
     pub fn new() -> Self {
         assert!(mem::size_of::<T>() != 0, "We're not ready to handle ZSTs");
         Vec {
